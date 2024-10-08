@@ -71,7 +71,7 @@ open class FSPageControl: UIControl {
     internal var paths: [UIControl.State: UIBezierPath] = [:]
     internal var images: [UIControl.State: UIImage] = [:]
     internal var alphas: [UIControl.State: CGFloat] = [:]
-    internal var transforms: [UIControl.State: CGAffineTransform] = [:]
+    public var transforms: [UIControl.State: CGAffineTransform] = [:]
     
     fileprivate weak var contentView: UIView!
     
@@ -103,7 +103,7 @@ open class FSPageControl: UIControl {
     
     open override func layoutSublayers(of layer: CALayer) {
         super.layoutSublayers(of: layer)
-        
+
         let diameter = self.itemSpacing
         let spacing = self.interitemSpacing
         var x: CGFloat = {
@@ -112,7 +112,14 @@ open class FSPageControl: UIControl {
                 return 0
             case .center, .fill:
                 let midX = self.contentView.bounds.midX
-                let amplitude = CGFloat(self.numberOfPages/2) * diameter + spacing*CGFloat((self.numberOfPages-1)/2)
+                var amplitude = CGFloat(self.numberOfPages/2) * diameter + spacing*CGFloat((self.numberOfPages-1)/2)
+                if let norImage = self.images[.normal], let selImage = self.images[.selected] {
+                    let totalWidth = CGFloat((numberOfPages - 1)) * (norImage.size.width + spacing) + selImage.size.width
+                    amplitude = totalWidth / 2.0
+                } else if let norPath = self.paths[.normal], let selPath = self.paths[.selected] {
+                    let totalWidth = CGFloat((numberOfPages - 1)) * (norPath.bounds.size.width + spacing) + selPath.bounds.size.width
+                    amplitude = totalWidth / 2.0
+                }
                 return midX - amplitude
             case .right, .trailing:
                 let contentWidth = diameter*CGFloat(self.numberOfPages) + CGFloat(self.numberOfPages-1)*spacing
@@ -123,13 +130,17 @@ open class FSPageControl: UIControl {
         }()
         for (index,value) in self.indicatorLayers.enumerated() {
             let state: UIControl.State = (index == self.currentPage) ? .selected : .normal
-            let image = self.images[state]
-            let size = image?.size ?? CGSize(width: diameter, height: diameter)
-            let origin = CGPoint(x: x - (size.width-diameter)*0.5, y: self.contentView.bounds.midY-size.height*0.5)
+            var size = CGSize(width: diameter, height: diameter)
+            if let image = self.images[state] {
+                size = image.size
+            }
+            if let path = self.paths[state] {
+                size = path.bounds.size
+            }
+            let origin = CGPoint(x: x, y: self.contentView.bounds.midY-size.height*0.5)
             value.frame = CGRect(origin: origin, size: size)
-            x = x + spacing + diameter
+            x += (spacing + size.width)
         }
-        
     }
     
     /// Sets the stroke color for page indicators to use for the specified state. (selected/normal).
